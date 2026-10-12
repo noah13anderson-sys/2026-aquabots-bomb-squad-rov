@@ -1,6 +1,6 @@
 ---
-title: "Aquabots"
-github: "noah13anderson-sys/2026-aquabots-bomb-squad-rov"
-description: "Aquabots"
-created_at: "2026"
+title: "My Project Name"
+author: "your-name"
+description: "A short description of your project"
+created_at: "2026-10-12"
 ---
