@@ -1,5 +1,5 @@
 BUILDROOTDIR := ../buildroot
-OUTPUTDIR := $(CURDIR)
+OUTPUTDIR := $(CURDIR)/build
 BUILDROOT_REPO := https://github.com/buildroot/buildroot.git
 
 .PHONY: all setup config build clean
