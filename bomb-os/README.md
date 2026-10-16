@@ -1,0 +1,1 @@
+rootfs_overlay is copied to the filesystem right before finally packaging it
