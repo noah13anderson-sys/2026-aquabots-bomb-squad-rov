@@ -14,7 +14,7 @@ PROGRAM_SRC  := $(PROJECT_DIR)/src/main.c
 PROGRAM_BIN  := $(OVERLAY_DIR)/bin/$(PROGRAM_NAME)
 
 CROSS_COMPILE := $(OUTPUT_DIR)/host/bin/aarch64-linux-
-PKG_CONFIG    := pkg-config
+PKG_CONFIG    := $(OUTPUT_DIR)/host/bin/pkg-config
 
 .PHONY: all setup configure program build clean flash
 
@@ -35,14 +35,15 @@ configure: setup
 	$(BUILDROOT_DIR)/utils/config --file "$(OUTPUT_DIR)/.config" --set-str BR2_ROOTFS_OVERLAY "$(OVERLAY_DIR)"
 	$(MAKE) -C "$(BUILDROOT_DIR)" O="$(OUTPUT_DIR)" olddefconfig
 
-program:
+program: configure
+	$(MAKE) -C "$(BUILDROOT_DIR)" O="$(OUTPUT_DIR)" host-pkgconf
+	$(MAKE) -C "$(BUILDROOT_DIR)" O="$(OUTPUT_DIR)" sdl2
 	mkdir -p "$(dir $(PROGRAM_BIN))"
-	$(CROSS_COMPILE)gcc "$(PROGRAM_SRC)" -o "$(PROGRAM_BIN)" $("$(PKG_CONFIG)" --cflags --libs sdl2) -lm
+	$(CROSS_COMPILE)gcc "$(PROGRAM_SRC)" -o "$(PROGRAM_BIN)" $$("$(PKG_CONFIG)" --cflags --libs sdl2) -lm
 	chmod +x "$(PROGRAM_BIN)"
 
 build: configure
 	$(MAKE) -C "$(BUILDROOT_DIR)" O="$(OUTPUT_DIR)" rpi-firmware
-	$(MAKE) -C "$(BUILDROOT_DIR)" O="$(OUTPUT_DIR)" sdl2
 	$(MAKE) program
 	$(MAKE) -C "$(BUILDROOT_DIR)" O="$(OUTPUT_DIR)"
 
