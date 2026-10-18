@@ -1,4 +1,3 @@
-
 PROJECT_DIR    := $(CURDIR)
 BUILDROOT_DIR  := $(PROJECT_DIR)/../buildroot
 OUTPUT_DIR     := $(PROJECT_DIR)/build
@@ -15,7 +14,7 @@ PROGRAM_SRC  := $(PROJECT_DIR)/src/main.c
 PROGRAM_BIN  := $(OVERLAY_DIR)/bin/$(PROGRAM_NAME)
 
 CROSS_COMPILE := $(OUTPUT_DIR)/host/bin/aarch64-linux-
-PKG_CONFIG    := $(OUTPUT_DIR)/host/bin/pkg-config
+PKG_CONFIG    := pkg-config
 
 .PHONY: all setup configure program build clean flash
 
@@ -27,6 +26,7 @@ setup:
 		git clone $(BUILDROOT_REPO) "$(BUILDROOT_DIR)"; \
 	else \
 		echo "Buildroot already exists."; \
+		git -C "$(BUILDROOT_DIR)" pull; \
 	fi
 
 configure: setup
@@ -37,8 +37,7 @@ configure: setup
 
 program:
 	mkdir -p "$(dir $(PROGRAM_BIN))"
-	$(CROSS_COMPILE)gcc "$(PROGRAM_SRC)" -o "$(PROGRAM_BIN)" \
-		$$("$(PKG_CONFIG)" --cflags --libs sdl2) -lm
+	$(CROSS_COMPILE)gcc "$(PROGRAM_SRC)" -o "$(PROGRAM_BIN)" $("$(PKG_CONFIG)" --cflags --libs sdl2) -lm
 	chmod +x "$(PROGRAM_BIN)"
 
 build: configure
