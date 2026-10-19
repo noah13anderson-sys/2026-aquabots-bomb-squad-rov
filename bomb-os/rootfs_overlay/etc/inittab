@@ -1,1 +1,1 @@
-tty1::respawn:/bin/bomb_os
+tty1::respawn:/bin/sh -c 'export SDL_VIDEODRIVER=KMSDRM; exec /bin/bomb_os'
