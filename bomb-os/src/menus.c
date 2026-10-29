@@ -1,9 +1,6 @@
 #include "menu.h"
 #include "menus.h"
 
-extern const Menu main_menu;
-extern const Menu settings_menu;
-
 static const MenuOption settings_options[] = {
     { "Back", MENU_ACTION_SUBMENU, NULL, NULL }
 };
