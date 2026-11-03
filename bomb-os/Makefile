@@ -1,32 +1,67 @@
 PROJECT_DIR    := $(CURDIR)
 BUILDROOT_DIR  := $(PROJECT_DIR)/../buildroot
+LVGL_DIR       := $(PROJECT_DIR)/../lvgl
 OUTPUT_DIR     := $(PROJECT_DIR)/build
 OVERLAY_DIR    := $(PROJECT_DIR)/rootfs_overlay
 
-BASE_DEFCONFIG := $(BUILDROOT_DIR)/configs/raspberrypi4_64_defconfig
+BASE_DEFCONFIG  := $(BUILDROOT_DIR)/configs/raspberrypi4_64_defconfig
 LOCAL_DEFCONFIG := $(PROJECT_DIR)/defconfig
 
 BUILDROOT_REPO := https://github.com/buildroot/buildroot.git
-IMAGE          := $(OUTPUT_DIR)/images/sdcard.img
+LVGL_REPO      := https://github.com/lvgl/lvgl.git
+LVGL_VERSION   := v9.3.0
+
+IMAGE := $(OUTPUT_DIR)/images/sdcard.img
 
 PROGRAM_NAME := bomb_os
-PROGRAM_SRC  := $(PROJECT_DIR)/src/main.c
-PROGRAM_BIN  := $(OVERLAY_DIR)/bin/$(PROGRAM_NAME)
+
+PROGRAM_SRC := \
+    $(PROJECT_DIR)/src/main.c \
+    $(PROJECT_DIR)/src/controller/controller.c \
+    $(PROJECT_DIR)/src/camera/camera.c
+
+PROGRAM_BIN := $(OVERLAY_DIR)/bin/$(PROGRAM_NAME)
 
 CROSS_COMPILE := $(OUTPUT_DIR)/host/bin/aarch64-linux-
 SYSROOT       := $(OUTPUT_DIR)/host/aarch64-buildroot-linux-gnu/sysroot
 
-.PHONY: all setup configure program build clean flash
+LVGL_CFLAGS := \
+    -I"$(LVGL_DIR)" \
+    -I"$(PROJECT_DIR)/src" \
+    -DLV_CONF_INCLUDE_SIMPLE
+
+LVGL_SRC := $(shell find "$(LVGL_DIR)/src" -name '*.c' 2>/dev/null)
+
+CFLAGS := \
+    --sysroot="$(SYSROOT)" \
+    -I"$(SYSROOT)/usr/include" \
+    -I"$(SYSROOT)/usr/include/libdrm" \
+    $(LVGL_CFLAGS)
+
+LDLIBS := \
+    -ldrm \
+    -lm
+
+.PHONY: all setup setup-buildroot setup-lvgl configure program build clean flash
 
 all: build
 
-setup:
+setup: setup-buildroot setup-lvgl
+
+setup-buildroot:
 	@if [ ! -d "$(BUILDROOT_DIR)/.git" ]; then \
 		echo "Cloning Buildroot..."; \
 		git clone $(BUILDROOT_REPO) "$(BUILDROOT_DIR)"; \
 	else \
 		echo "Buildroot already exists."; \
-		git -C "$(BUILDROOT_DIR)" pull; \
+	fi
+
+setup-lvgl:
+	@if [ ! -d "$(LVGL_DIR)/.git" ]; then \
+		echo "Cloning LVGL $(LVGL_VERSION)..."; \
+		git clone --branch $(LVGL_VERSION) --depth 1 $(LVGL_REPO) "$(LVGL_DIR)"; \
+	else \
+		echo "LVGL already exists."; \
 	fi
 
 configure: setup
@@ -36,14 +71,18 @@ configure: setup
 	$(MAKE) -C "$(BUILDROOT_DIR)" O="$(OUTPUT_DIR)" olddefconfig
 
 program: configure
-	mkdir -p "$(dir $(PROGRAM_BIN))"
+	@test -f "$(PROJECT_DIR)/src/lv_conf.h" || \
+		{ echo "ERROR: src/lv_conf.h is missing"; exit 1; }
+
+	@mkdir -p "$(dir $(PROGRAM_BIN))"
+
 	$(CROSS_COMPILE)gcc \
-		--sysroot="$(SYSROOT)" \
-		-I"$(SYSROOT)/usr/include/libdrm" \
-		-I"$(SYSROOT)/usr/include/drm" \
-		"$(PROGRAM_SRC)" \
+		$(CFLAGS) \
+		$(PROGRAM_SRC) \
+		$(LVGL_SRC) \
 		-o "$(PROGRAM_BIN)" \
-		-lEGL -lGLESv2 -lgbm -ldrm
+		$(LDLIBS)
+
 	chmod +x "$(PROGRAM_BIN)"
 
 build: configure
@@ -54,6 +93,9 @@ build: configure
 clean:
 	rm -f "$(PROGRAM_BIN)"
 	$(MAKE) -C "$(BUILDROOT_DIR)" O="$(OUTPUT_DIR)" clean
+
+clean-lvgl:
+	rm -rf "$(LVGL_DIR)"
 
 flash: build
 	@set -eu; \

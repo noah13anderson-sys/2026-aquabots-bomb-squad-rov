@@ -1,58 +1,101 @@
+
 #include <stdio.h>
-#include <stdbool.h>
-#include <stddef.h>
-
-#include <stdlib.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
-#include <linux/fb.h>
+#include <signal.h>
+#include <stdbool.h>
 
-#include <GLES2/gl2.h>
-#include <EGL/egl.h>
-#include <gbm.h>
-#include <xf86drm.h>
-#include <xf86drmMode.h>
+#include "lvgl.h"
 
-#define NANOVG_GLES2_IMPLEMENTATION
-#include "nanovg/nanovg.h"
-#include "nanovg/nanovg_gl.h"
+#include "display/display.h"
+#include "camera/camera.h"
+#include "input/keyboard.h"
+#include "ui/ui.h"
 
-#include "menus.h"
+static volatile sig_atomic_t running = 1;
+
+static void shutdown_handler(int signal_number)
+{
+    (void)signal_number;
+    running = 0;
+}
 
 int main(void)
 {
-    int fbfd = open("/dev/fb0", O_RDONLY);
-    if (fbfd == -1) {
+    signal(SIGINT, shutdown_handler);
+    signal(SIGTERM, shutdown_handler);
+
+    printf("================================\n");
+    printf("          BOMB OS\n");
+    printf("================================\n");
+
+    lv_init();
+
+    if (display_init() != 0) {
+        fprintf(stderr, "Display initialization failed\n");
         return 1;
     }
 
-    struct fb_var_screeninfo vinfo;
+    uint32_t width = display_get_width();
+    uint32_t height = display_get_height();
 
-    if (ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo) == -1) {
-        close(fbfd);
-        return 1;
+    printf("Display resolution: %ux%u\n", width, height);
+
+    if (keyboard_init() != 0) {
+        fprintf(stderr, "Keyboard unavailable\n");
     }
 
-    glClearColor(0.0f,0.0f,0.0f,255.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    bool camera_ready = camera_init(
+        "/dev/video0",
+        width,
+        height,
+        CAMERA_SCALE_FIT
+    ) == 0;
 
-    NVGcontext *vg = nvgCreateGLES2(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
-    if (vg == NULL) {
-        return -1;
+    if (ui_init(width, height) != 0) {
+        fprintf(stderr, "UI initialization failed\n");
+        goto shutdown;
     }
 
-    nvgBeginFrame(vg, vinfo.width, vinfo.height, 1.0f);
+    ui_set_camera_connected(camera_ready);
 
-    nvgBeginPath(vg);
-    nvgRect(vg, 50, 50, 150, 150); 
-    nvgFillColor(vg, nvgRGBA(255, 128, 0, 255));
-    nvgFill(vg);
+    printf("Bomb OS ready\n");
 
-    nvgFontSize(vg, 22.0f);
-    nvgFontFace(vg, "sans");
-    nvgFillColor(vg, nvgRGBA(255, 255, 255, 255)); // White text
-    nvgText(vg, 50, 40, "Hello Buildroot!", NULL);
+    while (running) {
 
-    nvgEndFrame(vg);
+        KeyboardKey key = keyboard_poll();
+
+        if (key != KEYBOARD_NONE)
+            ui_keyboard_input(key);
+
+        if (camera_ready) {
+
+            int result = camera_update();
+
+            if (result == 1) {
+                ui_set_camera_frame(camera_get_pixels());
+                ui_set_camera_info(camera_get_info());
+            }
+
+            if (result < 0) {
+                camera_ready = false;
+                ui_set_camera_connected(false);
+                fprintf(stderr, "Camera disconnected\n");
+            }
+        }
+
+        lv_timer_handler();
+
+        usleep(5000);
+    }
+
+shutdown:
+
+    printf("Shutting down Bomb OS...\n");
+
+    camera_close();
+    keyboard_close();
+    ui_deinit();
+    display_deinit();
+
+    return 0;
 }
