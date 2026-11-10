@@ -51,11 +51,7 @@ int main(void)
         CAMERA_SCALE_FIT
     ) == 0;
 
-    if (ui_init(width, height) != 0) {
-        fprintf(stderr, "UI initialization failed\n");
-        goto shutdown;
-    }
-
+    ui_init();
     ui_set_camera_connected(camera_ready);
 
     printf("Bomb OS ready\n");

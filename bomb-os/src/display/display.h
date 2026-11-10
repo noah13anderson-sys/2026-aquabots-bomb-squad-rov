@@ -6,8 +6,6 @@
 
 int display_init(void);
 
-void display_poll(void);
-
 void display_deinit(void);
 
 uint32_t display_get_width(void);

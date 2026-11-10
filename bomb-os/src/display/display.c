@@ -144,10 +144,7 @@ static int select_display(void)
             display.width = mode->hdisplay;
             display.height = mode->vdisplay;
 
-            display.saved_crtc =
-                drmModeGetCrtc(display.fd, crtc_id);
-
-            display.mode = *mode;
+            display.crtc_id = drmModeGetCrtc(display.fd, crtc_id);
 
             result = 0;
         }
@@ -194,7 +191,7 @@ static int create_framebuffer(void)
             32,
             display.pitch,
             display.handle,
-            &display.fb_id) != 0) {
+            &create) != 0) {
         perror("DRM add framebuffer");
         return -1;
     }
@@ -240,7 +237,7 @@ static int create_framebuffer(void)
             0,
             &display.connector_id,
             1,
-            &display.mode) != 0) {
+            &display.fd) != 0) {
         perror("DRM set CRTC");
         return -1;
     }
@@ -381,11 +378,6 @@ int display_init(void)
 error:
     display_deinit();
     return -1;
-}
-
-void display_poll(void)
-{
-    /* LVGL handles rendering through its timer handler. */
 }
 
 void display_deinit(void)

@@ -4,11 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "../camera/camera.h"
 #include "lvgl.h"
-
-/* ============================================================
- * UI CONFIGURATION
- * ============================================================ */
 
 #define UI_BACKGROUND       0x101820
 #define UI_PANEL            0x1B2836
@@ -21,10 +18,6 @@
 
 #define UI_MENU_WIDTH       300
 #define UI_MENU_PADDING     20
-
-/* ============================================================
- * UI STATE
- * ============================================================ */
 
 static lv_obj_t *screen;
 
@@ -45,7 +38,7 @@ static lv_obj_t *content_description;
 static bool bluetooth_connected = false;
 static bool camera_connected = false;
 
-static const char *camera_info = "No camera detected";
+static CameraInfo camera_info;
 static const char *bluetooth_info = "No controller connected";
 
 typedef enum {
@@ -55,10 +48,6 @@ typedef enum {
 } MenuPage;
 
 static MenuPage current_page = MENU_MAIN;
-
-/* ============================================================
- * STYLING
- * ============================================================ */
 
 static void style_button(
     lv_obj_t *button,
@@ -110,10 +99,6 @@ static void style_button(
     );
 }
 
-/* ============================================================
- * CONTENT PAGE
- * ============================================================ */
-
 static void show_main_page(void)
 {
     current_page = MENU_MAIN;
@@ -163,20 +148,16 @@ static void show_video_page(void)
     lv_label_set_text_fmt(
         content_description,
         "Camera Status: %s\n\n"
-        "Camera: %s\n\n"
+        "Camera FPS: %s\n\n"
         "Video source: USB Camera\n\n"
         "Display modes:\n"
         "- Fit\n"
         "- Scale\n\n"
         "Only one USB camera is supported.",
         camera_connected ? "CONNECTED" : "DISCONNECTED",
-        camera_info
+        camera_info.fps
     );
 }
-
-/* ============================================================
- * MENU CALLBACKS
- * ============================================================ */
 
 static void bluetooth_button_callback(
     lv_event_t *event
@@ -201,10 +182,6 @@ static void video_button_callback(
 
     show_video_page();
 }
-
-/* ============================================================
- * CREATE MENU BUTTON
- * ============================================================ */
 
 static lv_obj_t *create_menu_button(
     lv_obj_t *parent,
@@ -235,10 +212,6 @@ static lv_obj_t *create_menu_button(
     return button;
 }
 
-/* ============================================================
- * INITIALIZE UI
- * ============================================================ */
-
 void ui_init(void)
 {
     screen = lv_screen_active();
@@ -254,8 +227,6 @@ void ui_init(void)
         LV_OPA_COVER,
         LV_PART_MAIN
     );
-
-    /* ---------------- MENU PANEL ---------------- */
 
     menu_panel = lv_obj_create(screen);
 
@@ -308,8 +279,6 @@ void ui_init(void)
         LV_FLEX_ALIGN_START
     );
 
-    /* ---------------- MENU TITLE ---------------- */
-
     menu_title = lv_label_create(menu_panel);
 
     lv_label_set_text(
@@ -346,8 +315,6 @@ void ui_init(void)
         LV_PART_MAIN
     );
 
-    /* ---------------- MENU BUTTONS ---------------- */
-
     bluetooth_button = create_menu_button(
         menu_panel,
         "Bluetooth",
@@ -359,8 +326,6 @@ void ui_init(void)
         "Video",
         video_button_callback
     );
-
-    /* ---------------- STATUS ---------------- */
 
     status_label = lv_label_create(menu_panel);
 
@@ -380,8 +345,6 @@ void ui_init(void)
         20,
         LV_PART_MAIN
     );
-
-    /* ---------------- CONTENT PANEL ---------------- */
 
     content_panel = lv_obj_create(screen);
 
@@ -426,8 +389,6 @@ void ui_init(void)
         LV_OBJ_FLAG_SCROLLABLE
     );
 
-    /* ---------------- CONTENT TITLE ---------------- */
-
     content_title = lv_label_create(content_panel);
 
     lv_obj_align(
@@ -448,8 +409,6 @@ void ui_init(void)
         LV_FONT_DEFAULT,
         LV_PART_MAIN
     );
-
-    /* ---------------- CONTENT DESCRIPTION ---------------- */
 
     content_description = lv_label_create(content_panel);
 
@@ -477,8 +436,6 @@ void ui_init(void)
         LV_PART_MAIN
     );
 
-    /* ---------------- INITIAL PAGE ---------------- */
-
     show_main_page();
 
     style_button(bluetooth_button, false);
@@ -486,10 +443,6 @@ void ui_init(void)
 
     lv_obj_move_foreground(menu_panel);
 }
-
-/* ============================================================
- * UPDATE BLUETOOTH INFORMATION
- * ============================================================ */
 
 void ui_set_bluetooth_info(const char *info)
 {
@@ -515,15 +468,8 @@ void ui_set_bluetooth_info(const char *info)
     );
 }
 
-/* ============================================================
- * UPDATE CAMERA INFORMATION
- * ============================================================ */
-
-void ui_set_camera_info(const char *info)
+void ui_set_camera_info(CameraInfo info)
 {
-    if (info == NULL)
-        return;
-
     camera_info = info;
 
     camera_connected = true;
@@ -531,10 +477,6 @@ void ui_set_camera_info(const char *info)
     if (current_page == MENU_VIDEO)
         show_video_page();
 }
-
-/* ============================================================
- * KEYBOARD NAVIGATION
- * ============================================================ */
 
 void ui_keyboard_input(uint32_t key)
 {
@@ -574,10 +516,6 @@ void ui_keyboard_input(uint32_t key)
             break;
     }
 }
-
-/* ============================================================
- * SHUTDOWN
- * ============================================================ */
 
 void ui_deinit(void)
 {
